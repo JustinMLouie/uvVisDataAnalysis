@@ -3,7 +3,9 @@ clc; clear all;
 %{
 File Notes: 
 
-Nonabstracted parts: plot legend - update labels each time
+Nonabstracted parts to update for each sample set: 
+1. plot legend - update labels each time
+2. Subtitle
 
 If you want to add additional readings, copy the if statement loop that
 checks through another folder, and add another difference calc, and then
@@ -21,71 +23,25 @@ currentDirItems = dir(currentDir);
 
 dateInitial = '231213';
 dateWeek1 = '240214';
-% datWeek2
 numSamples = 8; % Update as needed
 
 csvDataInitial = zeros(2511, 2, numSamples);
 csvDataWeek1 = zeros(2511, 2, numSamples);
 diffReadings = zeros(2511, numSamples);
 
-% For loop to iterate through current directory and pull all csvs of
-% relevance
-% iterate through all members of currentDir
+% Iterate through currentDir and pull all csvs of relevance
 for i = 1:length(currentDirItems)
-    if currentDirItems(i).isdir && ~strcmp(currentDirItems(i).name, '.') && ~strcmp(currentDirItems(i).name, '..')
+    if currentDirItems(i).isdir && ~strcmp(currentDirItems(i).name, '.') ...
+            && ~strcmp(currentDirItems(i).name, '..') ...
+            && ~strcmp(currentDirItems(i).name, '.git') ...
+            && ~strcmp(currentDirItems(i).name, '.DS_Store') 
+
         disp(['Folder: ', currentDirItems(i).name]);
         
         targetDirPath = fullfile(currentDir, currentDirItems(i).name);
 
-        % adds all initial CSVs
-        if contains(currentDirItems(i).name, dateInitial)
-            csvCounter = 0; % counts number of CSVs found so far
-            cd(targetDirPath);
-            enteredDir = pwd;
-            enteredDirItems = dir(enteredDir);
-            for j = 1:length(enteredDirItems)
-                if endsWith(enteredDirItems(j).name, '.csv')
-                    csvCounter = csvCounter  + 1;
-                    disp(['CSV ', num2str(csvCounter), ': ', enteredDirItems(j).name]);
-                    tempStorage = readmatrix(enteredDirItems(j).name);
-                    if csvCounter == 2 % CSV 2: 231213_0wtPMMA_sampleB.csv has formatting issues
-                        tempStorage = flipud(tempStorage);
-                        tempStorage = tempStorage(1:end, :);
-                    else
-                        tempStorage = tempStorage(17:2527, :);
-                    end
-                    csvDataInitial(:, :, csvCounter) = tempStorage;
-                end
-            end
-            fprintf("Returning to currentDir");
-            fprintf("\n \n");
-            cd(currentDir);
-        end 
-
-        % iterates through all week1Data
-        if contains(currentDirItems(i).name, dateWeek1)
-            csvCounter = 0; % counts number of CSVs found so far
-            cd(targetDirPath);
-            enteredDir = pwd;
-            enteredDirItems = dir(enteredDir);
-            for j = 1:length(enteredDirItems)
-                if endsWith(enteredDirItems(j).name, '.csv')
-                    csvCounter = csvCounter  + 1;
-                    disp(['CSV ', num2str(csvCounter), ': ', enteredDirItems(j).name]);
-                    tempStorage = readmatrix(enteredDirItems(j).name);
-                    if csvCounter == 1 % CSV 1: 240214_0wtPMMA_1week_SampleA.csv has formatting issues
-                        tempStorage = flipud(tempStorage);
-                        tempStorage = tempStorage(1:end, :);
-                    else
-                        tempStorage = tempStorage(17:2527, :);
-                    end
-                    csvDataWeek1(:, :, csvCounter) = tempStorage;
-                end
-            end
-            fprintf("Returning to currentDir");
-            fprintf("\n \n");
-            cd(currentDir);
-        end 
+        csvDataInitial = fileAdder(currentDir, currentDirItems, i, dateInitial, targetDirPath, 2,csvDataInitial);
+        csvDataWeek1 = fileAdder(currentDir, currentDirItems, i, dateWeek1, targetDirPath, 1, csvDataWeek1);
     end
 end
 
@@ -115,10 +71,40 @@ NIR: 711-2511 nm
 %}
 
 fprintf("Starting graphing")
+subtitleText = "2/14/24 - 1 week measurements, 12/13/23 - Initial Measurements";
 graphDiff("Full Spectrum", numSamples, wavelengths, diffReadings, 1, 2511);
 graphDiff("UV", numSamples, wavelengths, diffReadings, 1, 211);
 graphDiff("VIS", numSamples, wavelengths, diffReadings, 211, 711);
 graphDiff("NIR", numSamples, wavelengths, diffReadings, 711, 2511);
+
+% pulls all csvs from a given folder and uploads data into a 3d matrix
+function csvDataUploads = fileAdder(currentDir, currentDirItems, i, date, targetDirPath, misformattedFileNum, csvDataUploads)
+    % csvDataUploads = zeros(2511, 2, numSamples);
+    if contains(currentDirItems(i).name, date) % checks if folder name contains date
+        % fprintf("------")
+        csvCounter = 0; % counts number of CSVs found so far
+        cd(targetDirPath); % cds into folder of csvs
+        enteredDir = pwd;
+        enteredDirItems = dir(enteredDir);
+        for j = 1:length(enteredDirItems)
+            if endsWith(enteredDirItems(j).name, '.csv')
+                csvCounter = csvCounter  + 1;
+                disp(['CSV ', num2str(csvCounter), ': ', enteredDirItems(j).name]);
+                tempStorage = readmatrix(enteredDirItems(j).name);
+                if csvCounter == misformattedFileNum
+                    tempStorage = flipud(tempStorage);
+                    tempStorage = tempStorage(1:end, :);
+                else
+                    tempStorage = tempStorage(17:2527, :);
+                end
+                csvDataUploads(:, :, csvCounter) = tempStorage;
+            end
+        end
+        fprintf("Returning to currentDir");
+        fprintf("\n \n");
+        cd(currentDir);
+    end
+end
 
 % function to plot diff UV-Vis reflectance diff at diff spectrums
 function graphDiff(spectrumType, numSamples, wavelengths, diffReadings, startWavelength, endWavelength)   
